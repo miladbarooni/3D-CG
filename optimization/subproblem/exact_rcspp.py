@@ -20,8 +20,16 @@ class Label:
     cost: float  # For heap ordering
     node: str = field(compare=False)
     path: Tuple[str, ...] = field(compare=False)
-    duty_time: float = field(compare=False)
-    current_time: float = field(compare=False)  # In hours from start
+    flight_time: float = field(compare=False)  # Total flight hours
+    start_timestamp: float = field(compare=False)  # Timestamp of first departure
+    end_timestamp: float = field(compare=False)  # Timestamp of current position
+
+    @property
+    def duty_time(self) -> float:
+        """Total duty time (wall clock from start to current)."""
+        if self.start_timestamp == 0:
+            return 0.0
+        return (self.end_timestamp - self.start_timestamp) / 3600  # Convert to hours
 
     def dominates(self, other: 'Label') -> bool:
         """Check if this label dominates another at the same node."""
@@ -29,8 +37,10 @@ class Label:
             return False
         return (
             self.cost <= other.cost and
-            self.duty_time <= other.duty_time and
-            (self.cost < other.cost or self.duty_time < other.duty_time)
+            self.flight_time <= other.flight_time and
+            self.end_timestamp <= other.end_timestamp and
+            (self.cost < other.cost or self.flight_time < other.flight_time or
+             self.end_timestamp < other.end_timestamp)
         )
 
 
@@ -66,8 +76,9 @@ class ExactRCSPP(PricingSubproblem):
             cost=0.0,
             node="SOURCE",
             path=("SOURCE",),
-            duty_time=0.0,
-            current_time=0.0
+            flight_time=0.0,
+            start_timestamp=0.0,
+            end_timestamp=0.0
         )
         heappush(heap, initial_label)
         labels_at_node["SOURCE"].append(initial_label)
@@ -169,29 +180,44 @@ class ExactRCSPP(PricingSubproblem):
         # Compute arc cost (with reduced cost for flight arcs)
         arc_cost = self.network.get_arc_cost(label.node, to_node, flight_duals)
 
-        # Update resources
-        new_duty = label.duty_time
-        duration_hours = arc.duration.total_seconds() / 3600
+        # Get timestamps from the network nodes
+        to_node_obj = self.network.nodes[to_node]
+        from_node_obj = self.network.nodes[label.node]
 
+        # Update flight time
+        new_flight_time = label.flight_time
         if arc.arc_type == "flight":
-            new_duty += duration_hours
+            new_flight_time += arc.duration.total_seconds() / 3600
 
-        new_time = label.current_time + duration_hours
+        # Update timestamps
+        new_start_timestamp = label.start_timestamp
+        new_end_timestamp = label.end_timestamp
 
-        # Check feasibility: duty time limit
-        if new_duty > self.crew.max_duty_hours:
+        if to_node_obj.time is not None:
+            new_end_timestamp = to_node_obj.time.timestamp()
+            # Set start time when leaving SOURCE for first flight
+            if label.node == "SOURCE" and from_node_obj.time is not None:
+                pass  # Will set start when we hit first departure
+            if new_start_timestamp == 0 and to_node_obj.node_type == "departure":
+                new_start_timestamp = to_node_obj.time.timestamp()
+
+        # Check feasibility: flight time limit
+        if new_flight_time > self.rules.max_flight_hours:
             return None
 
-        # Check feasibility: max duty period constraint
-        if new_time > self.rules.max_duty_hours:
-            return None
+        # Check feasibility: duty period (wall clock time from start to end)
+        if new_start_timestamp > 0 and new_end_timestamp > 0:
+            duty_hours = (new_end_timestamp - new_start_timestamp) / 3600
+            if duty_hours > self.crew.max_duty_hours:
+                return None
 
         return Label(
             cost=label.cost + arc_cost,
             node=to_node,
             path=label.path + (to_node,),
-            duty_time=new_duty,
-            current_time=new_time
+            flight_time=new_flight_time,
+            start_timestamp=new_start_timestamp,
+            end_timestamp=new_end_timestamp
         )
 
     def _is_dominated(
