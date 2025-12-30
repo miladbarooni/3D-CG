@@ -80,9 +80,10 @@ class ColumnGeneration:
         """
         Generate initial feasible pairings.
 
-        Creates simple pairings to ensure feasibility:
-        - For each crew, find a simple out-and-back pairing from their base
-        - Or an artificial pairing if no valid pairing exists
+        Creates pairings to ensure feasibility using multiple strategies:
+        1. Simple two-flight round trips
+        2. Multi-leg pairings via RCSPP
+        3. Any valid path from base back to base
 
         Returns:
             Number of initial pairings added
@@ -91,51 +92,86 @@ class ColumnGeneration:
         initial_count = 0
 
         for crew in self.crew:
-            # Find flights from/to crew's base
-            base_departures = [
-                f for f in self.flights
-                if f.origin == crew.base
-            ]
-            base_arrivals = [
-                f for f in self.flights
-                if f.destination == crew.base
-            ]
-
-            # Try to find a valid round-trip pairing
             found_pairing = False
-            for dep_flight in sorted(base_departures, key=lambda f: f.departure):
-                for arr_flight in sorted(base_arrivals, key=lambda f: f.departure):
-                    if dep_flight.can_connect_to(arr_flight, self.rules.min_connection_time):
-                        pairing = Pairing.create([dep_flight, arr_flight], crew)
-                        if pairing.is_legal(crew, self.rules):
-                            if self.master.add_pairing(pairing):
-                                initial_count += 1
-                                found_pairing = True
-                                logger.debug(f"Initial pairing for {crew.id}: {pairing}")
-                            break
-                if found_pairing:
-                    break
 
-            # If no round-trip found, try single flight that returns to base
+            # Strategy 1: Use RCSPP to find any valid pairing (with zero duals)
+            subproblem = self.subproblems[crew.id]
+            # Use zero duals to find any feasible path
+            zero_flight_duals = {f.id: 0.0 for f in self.flights}
+            result = subproblem.solve(zero_flight_duals, 0.0, time_limit_ms=5000)
+
+            if result.pairing and result.pairing.flights:
+                if result.pairing.is_legal(crew, self.rules):
+                    if self.master.add_pairing(result.pairing):
+                        initial_count += 1
+                        found_pairing = True
+                        logger.debug(f"RCSPP initial pairing for {crew.id}: {result.pairing}")
+
+            # Strategy 2: Try simple round-trips if RCSPP didn't find one
             if not found_pairing:
-                for flight in base_departures:
-                    if flight.destination == crew.base:
-                        pairing = Pairing.create([flight], crew)
-                        if pairing.is_legal(crew, self.rules):
-                            if self.master.add_pairing(pairing):
-                                initial_count += 1
-                                found_pairing = True
-                                logger.debug(f"Single-flight pairing for {crew.id}: {pairing}")
-                            break
+                base_departures = [
+                    f for f in self.flights
+                    if f.origin == crew.base
+                ]
+                base_arrivals = [
+                    f for f in self.flights
+                    if f.destination == crew.base
+                ]
+
+                for dep_flight in sorted(base_departures, key=lambda f: f.departure):
+                    for arr_flight in sorted(base_arrivals, key=lambda f: f.departure):
+                        if dep_flight.can_connect_to(arr_flight, self.rules.min_connection_time):
+                            pairing = Pairing.create([dep_flight, arr_flight], crew)
+                            if pairing.is_legal(crew, self.rules):
+                                if self.master.add_pairing(pairing):
+                                    initial_count += 1
+                                    found_pairing = True
+                                    logger.debug(f"Round-trip pairing for {crew.id}: {pairing}")
+                                break
+                    if found_pairing:
+                        break
+
+            # Strategy 3: Try multi-leg pairings (3 flights)
+            if not found_pairing:
+                found_pairing = self._find_multi_leg_pairing(crew)
+                if found_pairing:
+                    initial_count += 1
 
             if not found_pairing:
                 logger.warning(
                     f"No valid initial pairing found for {crew.id} "
-                    f"(base: {crew.base})"
+                    f"(base: {crew.base}). This may cause infeasibility."
                 )
 
         logger.info(f"Initialized with {initial_count} pairings")
         return initial_count
+
+    def _find_multi_leg_pairing(self, crew: Crew) -> bool:
+        """Try to find a multi-leg pairing for a crew member."""
+        base_departures = [f for f in self.flights if f.origin == crew.base]
+
+        for f1 in sorted(base_departures, key=lambda f: f.departure):
+            # Find flights connecting from f1
+            for f2 in self.flights:
+                if f1.can_connect_to(f2, self.rules.min_connection_time):
+                    # Check if f2 returns to base
+                    if f2.destination == crew.base:
+                        pairing = Pairing.create([f1, f2], crew)
+                        if pairing.is_legal(crew, self.rules):
+                            if self.master.add_pairing(pairing):
+                                logger.debug(f"2-leg pairing for {crew.id}: {pairing}")
+                                return True
+
+                    # Try 3-leg pairing
+                    for f3 in self.flights:
+                        if f2.can_connect_to(f3, self.rules.min_connection_time):
+                            if f3.destination == crew.base:
+                                pairing = Pairing.create([f1, f2, f3], crew)
+                                if pairing.is_legal(crew, self.rules):
+                                    if self.master.add_pairing(pairing):
+                                        logger.debug(f"3-leg pairing for {crew.id}: {pairing}")
+                                        return True
+        return False
 
     def run(self, verbose: bool = True) -> Solution:
         """

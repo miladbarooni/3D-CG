@@ -1,6 +1,6 @@
 """Micro-Airline test dataset generator.
 
-Creates the 10-flight, 4-crew test instance from the specification.
+Creates an 11-flight, 4-crew test instance based on the specification.
 This is a small but meaningful test case where the 3D effect is visible.
 """
 
@@ -18,7 +18,7 @@ def generate_micro_airline() -> Tuple[List[Flight], List[Crew], LegalRules]:
         Tuple of (flights, crew, rules)
 
     Dataset Details:
-        - 10 flights over 2 days
+        - 11 flights over 2 days
         - 4 crew members at 3 different bases (JFK, LAX, SFO)
         - Tests the 3D integrated model where crew bases matter
     """
@@ -128,6 +128,17 @@ def generate_micro_airline() -> Tuple[List[Flight], List[Crew], LegalRules]:
             departure=day2.replace(hour=16, minute=0),
             arrival=day2.replace(hour=21, minute=0),
             base_cost=120.0,
+            aircraft_type=AircraftType.NARROW_BODY
+        ),
+        # F11: Return flight to SFO for C4 feasibility (SFO crew needs a round-trip)
+        Flight(
+            id="F11",
+            flight_number="AA110",
+            origin="LAX",
+            destination="SFO",
+            departure=day1.replace(hour=19, minute=0),
+            arrival=day1.replace(hour=20, minute=30),
+            base_cost=50.0,
             aircraft_type=AircraftType.NARROW_BODY
         ),
     ]
