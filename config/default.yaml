@@ -1,0 +1,51 @@
+# Problem settings
+problem:
+  horizon_days: 2
+  min_connection_minutes: 60
+  max_duty_hours: 10
+  min_rest_hours: 10
+
+# Solver settings
+solver:
+  engine: "CBC"  # CBC, GUROBI, CPLEX
+  time_limit_seconds: 3600
+  mip_gap: 0.01
+
+# Column generation settings
+column_generation:
+  max_iterations: 100
+  tolerance: 1e-6
+  max_columns_per_iteration: 20
+  pricing_time_limit_ms: 5000
+
+# GNN settings
+gnn:
+  enabled: false
+  model_path: "checkpoints/best_gnn.pt"
+  architecture:
+    node_features: 6
+    edge_features: 8
+    hidden_dim: 64
+    num_layers: 4
+    num_heads: 4
+    dropout: 0.1
+  training:
+    learning_rate: 0.001
+    batch_size: 32
+    num_epochs: 100
+    early_stopping_patience: 10
+  inference:
+    pruning_threshold: 0.01
+    use_cuda: true
+
+# Logging
+logging:
+  level: INFO
+  file: "logs/solver.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Output
+output:
+  solution_file: "outputs/solution.json"
+  visualization: true
+  save_iterations: true
