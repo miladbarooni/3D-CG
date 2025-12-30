@@ -226,10 +226,6 @@ def main():
             print(f"    F6_DEP->F6_ARR: {arc_f6 is not None}")
             print(f"    F6_ARR->SINK: {arc_sink is not None}")
 
-            # Trace the RCSPP algorithm step by step
-            trace_rcspp(network, flights, c, rules)
-            break  # Only trace for first JFK crew
-
         # Run RCSPP
         subproblem = ExactRCSPP(flights, c, rules)
         zero_duals = {f.id: 0.0 for f in flights}
@@ -242,6 +238,14 @@ def main():
         else:
             print(f"  NO PAIRING FOUND!")
             print(f"    Explored {result.nodes_explored} nodes, created {result.labels_created} labels")
+
+    # Trace just C1
+    print("\n" + "=" * 60)
+    print("DETAILED TRACE FOR C1:")
+    print("=" * 60)
+    c1 = crew[0]
+    network = FlightNetwork(flights, c1, rules)
+    trace_rcspp(network, flights, c1, rules)
 
 if __name__ == "__main__":
     main()
