@@ -54,6 +54,28 @@ def main():
         sink_preds = [arc[0] for arc in network.arcs if arc[1] == "SINK"]
         print(f"  SINK connected from: {sink_preds}")
 
+        # Check specific paths manually
+        # Look for F5->F6 path for JFK crew
+        if c.base == "JFK":
+            print(f"  Checking F5->F6 path manually:")
+            f5_dep = "F5_DEP"
+            f5_arr = "F5_ARR"
+            f6_dep = "F6_DEP"
+            f6_arr = "F6_ARR"
+
+            # Check arcs exist
+            arc_f5 = network.get_arc(f5_dep, f5_arr)
+            arc_conn = network.get_arc(f5_arr, f6_dep)
+            arc_f6 = network.get_arc(f6_dep, f6_arr)
+            arc_sink = network.get_arc(f6_arr, "SINK")
+            arc_source = network.get_arc("SOURCE", f5_dep)
+
+            print(f"    SOURCE->F5_DEP: {arc_source is not None}")
+            print(f"    F5_DEP->F5_ARR: {arc_f5 is not None}")
+            print(f"    F5_ARR->F6_DEP: {arc_conn is not None}")
+            print(f"    F6_DEP->F6_ARR: {arc_f6 is not None}")
+            print(f"    F6_ARR->SINK: {arc_sink is not None}")
+
         # Run RCSPP
         subproblem = ExactRCSPP(flights, c, rules)
         zero_duals = {f.id: 0.0 for f in flights}
