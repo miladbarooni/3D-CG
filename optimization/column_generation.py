@@ -143,8 +143,42 @@ class ColumnGeneration:
                     f"(base: {crew.base}). This may cause infeasibility."
                 )
 
-        logger.info(f"Initialized with {initial_count} pairings")
+        # Log which flights are covered by initial pairings
+        covered_flights = set()
+        for pairing in self.master.pairings.values():
+            for flight in pairing.flights:
+                covered_flights.add(flight.id)
+
+        all_flight_ids = {f.id for f in self.flights}
+        uncovered = all_flight_ids - covered_flights
+
+        logger.info(f"Initialized with {initial_count} pairings covering {len(covered_flights)}/{len(all_flight_ids)} flights")
+        if uncovered:
+            logger.warning(f"Uncovered flights in initial solution: {uncovered}")
+            # Try to generate additional pairings covering uncovered flights
+            self._generate_additional_pairings(uncovered)
+
         return initial_count
+
+    def _generate_additional_pairings(self, uncovered_flights: set) -> None:
+        """Generate additional pairings to cover uncovered flights."""
+        for crew in self.crew:
+            subproblem = self.subproblems[crew.id]
+
+            # Use high dual prices for uncovered flights to encourage their inclusion
+            flight_duals = {}
+            for f in self.flights:
+                if f.id in uncovered_flights:
+                    flight_duals[f.id] = 1000.0  # High value to encourage coverage
+                else:
+                    flight_duals[f.id] = 0.0
+
+            result = subproblem.solve(flight_duals, 0.0, time_limit_ms=5000)
+
+            if result.pairing and result.pairing.flights:
+                if result.pairing.is_legal(crew, self.rules):
+                    if self.master.add_pairing(result.pairing):
+                        logger.debug(f"Additional pairing for {crew.id}: {result.pairing}")
 
     def _find_multi_leg_pairing(self, crew: Crew) -> bool:
         """Try to find a multi-leg pairing for a crew member."""
