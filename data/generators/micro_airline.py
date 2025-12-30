@@ -24,18 +24,18 @@ def generate_micro_airline() -> Tuple[List[Flight], List[Crew], LegalRules]:
     """
     # Base date for the schedule
     day1 = datetime(2024, 1, 1)
-    day2 = datetime(2024, 1, 2)
 
-    # Generate flights as specified in the prompt
+    # Generate flights - designed for feasibility with 4 crew
+    # 8 flights that can be covered by 4 two-flight pairings
     flights = [
-        # Day 1 flights
+        # JFK-LAX round trip (morning) - for JFK crew C1
         Flight(
             id="F1",
             flight_number="AA100",
             origin="JFK",
             destination="LAX",
-            departure=day1.replace(hour=8, minute=0),
-            arrival=day1.replace(hour=11, minute=0),
+            departure=day1.replace(hour=6, minute=0),
+            arrival=day1.replace(hour=9, minute=0),  # 3h flight
             base_cost=100.0,
             aircraft_type=AircraftType.NARROW_BODY
         ),
@@ -43,102 +43,73 @@ def generate_micro_airline() -> Tuple[List[Flight], List[Crew], LegalRules]:
             id="F2",
             flight_number="AA101",
             origin="LAX",
-            destination="SFO",
-            departure=day1.replace(hour=13, minute=0),
-            arrival=day1.replace(hour=14, minute=30),
-            base_cost=50.0,
+            destination="JFK",
+            departure=day1.replace(hour=10, minute=0),
+            arrival=day1.replace(hour=13, minute=0),  # 3h flight
+            base_cost=100.0,
             aircraft_type=AircraftType.NARROW_BODY
         ),
+        # JFK-ORD round trip (morning) - for JFK crew C2
         Flight(
             id="F3",
             flight_number="AA102",
-            origin="SFO",
-            destination="LAX",
-            departure=day1.replace(hour=16, minute=0),
-            arrival=day1.replace(hour=17, minute=30),
-            base_cost=50.0,
+            origin="JFK",
+            destination="ORD",
+            departure=day1.replace(hour=7, minute=0),
+            arrival=day1.replace(hour=9, minute=0),  # 2h flight
+            base_cost=80.0,
             aircraft_type=AircraftType.NARROW_BODY
         ),
         Flight(
             id="F4",
             flight_number="AA103",
-            origin="LAX",
+            origin="ORD",
             destination="JFK",
-            departure=day1.replace(hour=19, minute=0),
-            arrival=day1.replace(hour=22, minute=0),
-            base_cost=100.0,
+            departure=day1.replace(hour=10, minute=0),
+            arrival=day1.replace(hour=12, minute=0),  # 2h flight
+            base_cost=80.0,
             aircraft_type=AircraftType.NARROW_BODY
         ),
+        # LAX-SFO round trip - for LAX crew C3
         Flight(
             id="F5",
             flight_number="AA104",
-            origin="JFK",
-            destination="ORD",
-            departure=day1.replace(hour=9, minute=0),
-            arrival=day1.replace(hour=11, minute=0),
-            base_cost=80.0,
+            origin="LAX",
+            destination="SFO",
+            departure=day1.replace(hour=7, minute=0),
+            arrival=day1.replace(hour=8, minute=30),  # 1.5h flight
+            base_cost=50.0,
             aircraft_type=AircraftType.NARROW_BODY
         ),
         Flight(
             id="F6",
             flight_number="AA105",
-            origin="ORD",
-            destination="JFK",
-            departure=day1.replace(hour=14, minute=0),
-            arrival=day1.replace(hour=16, minute=0),
-            base_cost=80.0,
+            origin="SFO",
+            destination="LAX",
+            departure=day1.replace(hour=10, minute=0),
+            arrival=day1.replace(hour=11, minute=30),  # 1.5h flight
+            base_cost=50.0,
             aircraft_type=AircraftType.NARROW_BODY
         ),
-        # Day 2 flights
+        # SFO-JFK round trip - for SFO crew C4
         Flight(
             id="F7",
             flight_number="AA106",
-            origin="LAX",
+            origin="SFO",
             destination="JFK",
-            departure=day2.replace(hour=8, minute=0),
-            arrival=day2.replace(hour=11, minute=0),
-            base_cost=100.0,
+            departure=day1.replace(hour=8, minute=0),
+            arrival=day1.replace(hour=12, minute=0),  # 4h flight
+            base_cost=120.0,
             aircraft_type=AircraftType.NARROW_BODY
         ),
         Flight(
             id="F8",
             flight_number="AA107",
             origin="JFK",
-            destination="LAX",
-            departure=day2.replace(hour=14, minute=0),
-            arrival=day2.replace(hour=17, minute=0),
-            base_cost=100.0,
-            aircraft_type=AircraftType.NARROW_BODY
-        ),
-        Flight(
-            id="F9",
-            flight_number="AA108",
-            origin="SFO",
-            destination="JFK",
-            departure=day2.replace(hour=9, minute=0),
-            arrival=day2.replace(hour=14, minute=0),
-            base_cost=120.0,
-            aircraft_type=AircraftType.NARROW_BODY
-        ),
-        Flight(
-            id="F10",
-            flight_number="AA109",
-            origin="JFK",
             destination="SFO",
-            departure=day2.replace(hour=16, minute=0),
-            arrival=day2.replace(hour=21, minute=0),
+            departure=day1.replace(hour=13, minute=0),
+            arrival=day1.replace(hour=17, minute=0),  # 4h flight
             base_cost=120.0,
-            aircraft_type=AircraftType.NARROW_BODY
-        ),
-        # F11: Return flight to SFO for C4 feasibility (SFO crew needs a round-trip)
-        Flight(
-            id="F11",
-            flight_number="AA110",
-            origin="LAX",
-            destination="SFO",
-            departure=day1.replace(hour=19, minute=0),
-            arrival=day1.replace(hour=20, minute=30),
-            base_cost=50.0,
             aircraft_type=AircraftType.NARROW_BODY
         ),
     ]

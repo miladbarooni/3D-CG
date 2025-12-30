@@ -104,11 +104,11 @@ def trace_rcspp(network, flights, crew, rules):
                 print(f"      REJECTED: Flight time {new_flight_time:.2f}h exceeds max {rules.max_flight_hours}h")
                 continue
 
-            # Update timestamps
+            # Update timestamps - don't update for SOURCE/SINK (artificial times)
             new_start_timestamp = current.start_timestamp
             new_end_timestamp = current.end_timestamp
 
-            if to_node_obj.time is not None:
+            if to_node_obj.time is not None and to_node_obj.node_type not in ("source", "sink"):
                 new_end_timestamp = to_node_obj.time.timestamp()
                 if new_start_timestamp == 0 and to_node_obj.node_type == "departure":
                     new_start_timestamp = to_node_obj.time.timestamp()

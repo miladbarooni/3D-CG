@@ -193,11 +193,10 @@ class ExactRCSPP(PricingSubproblem):
         new_start_timestamp = label.start_timestamp
         new_end_timestamp = label.end_timestamp
 
-        if to_node_obj.time is not None:
+        # Don't update timestamps for SOURCE/SINK - they have artificial times
+        if to_node_obj.time is not None and to_node_obj.node_type not in ("source", "sink"):
             new_end_timestamp = to_node_obj.time.timestamp()
-            # Set start time when leaving SOURCE for first flight
-            if label.node == "SOURCE" and from_node_obj.time is not None:
-                pass  # Will set start when we hit first departure
+            # Set start time when we hit first departure
             if new_start_timestamp == 0 and to_node_obj.node_type == "departure":
                 new_start_timestamp = to_node_obj.time.timestamp()
 
